@@ -1,0 +1,87 @@
+from sage.all import Polyhedron
+
+# Verification of thm 2.2
+
+# Check if a convex set A is contained in convex set B
+def is_subset(convex_set_A, convex_set_B):
+    poly_B = Polyhedron(vertices=convex_set_B)
+    # Check if each point in convex_set_A is inside poly_B
+    for point in convex_set_A:
+        if not poly_B.contains(vector(point)):
+            return False
+    return True
+
+# Find the largest polyhedron that contains all other polyhedra in a given set of polyhedra
+def find_largest_polyhedron(polyhedra):
+    for candidate in polyhedra:
+        if all(is_subset(poly.vertices_list(), candidate.vertices_list()) for poly in polyhedra if poly != candidate):
+            return candidate  # Return the largest polyhedron that contains all others
+    # If no polyhedron contains all others, output an error message
+    print("Error: No subset relationship among polyhedra.")
+    return None
+
+# For each quadrant and each set of Halfspaces in a family so called H_lists, compute the intersections of Halfspaces in this set with the quadrant.
+def compute_union_polyhedron(H_lists, quadrants):
+    union_polyhedra = []
+    for quadrant in quadrants:
+        quadrant_unions = []
+        for H_list in H_lists:
+            polyhedra = []
+            for ieq in H_list:
+                H = Polyhedron(ieqs=[ieq])
+                intersection = H.intersection(quadrant)
+                polyhedra.append(intersection)
+            # For a set of intersections of Halfspaces with a quadrant, replace the union of them with the largest polyhedron in this set if it exists. Otherwise, print 'Error'.
+            largest_polyhedron = find_largest_polyhedron(polyhedra)
+            if largest_polyhedron is None:
+                return None
+            quadrant_unions.append(largest_polyhedron)
+        union_polyhedra.append(quadrant_unions)
+    return union_polyhedra
+
+# 15 B_1^3
+Ball = Polyhedron(vertices=[[0, 0, 15], [15, 0, 0], [0, 15, 0], [0, 0, -15], [0, -15, 0], [-15, 0, 0]])
+
+#The Halfspace-representations for eight quadrants and their intersections with Ball.
+quadrants = [
+    Polyhedron(ieqs=[(0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)]).intersection(Ball),    # first quadrant
+    Polyhedron(ieqs=[(0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, -1)]).intersection(Ball),   # second quadrant
+    Polyhedron(ieqs=[(0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)]).intersection(Ball),   # third quadrant
+    Polyhedron(ieqs=[(0, -1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1)]).intersection(Ball),   # fourth quadrant
+    Polyhedron(ieqs=[(0, 1, 0, 0), (0, 0, -1, 0), (0, 0, 0, -1)]).intersection(Ball),  # fifth quadrant
+    Polyhedron(ieqs=[(0, -1, 0, 0), (0, 0, 1, 0), (0, 0, 0, -1)]).intersection(Ball),  # sixth quadrant
+    Polyhedron(ieqs=[(0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, 1)]).intersection(Ball),  # seventh quadrant
+    Polyhedron(ieqs=[(0, -1, 0, 0), (0, 0, -1, 0), (0, 0, 0, -1)]).intersection(Ball)  # eighth quadrant
+]
+
+#The Family of sets of halfspaces with respect to K_i and -K_i, where i in [3].  
+# Denote by (-1, -1, -1, -1) the halfspace \{x in R^3 | -p_1(x)-p_2(x)-p_3(x)-1 >= 0 \}. For each x in (-1, -1, -1, -1), x not in int(K_1). 
+H_lists = [
+    # ((-1, -1, -1, -1) \cup (-1, -1, 1, 1) \cup (-1, -1, -1, 1) \cup (-1, -1, 1, -1)) \cap (13 B_1^3) = 13 B_1^3 \setminus int(K_1).
+    [(-1, -1, -1, -1), (-1, -1, 1, 1), (-1, -1, -1, 1), (-1, -1, 1, -1)],
+    [(-1, -1, -1, -1), (-1, 1, -1, 1), (-1, 1, -1, -1), (-1, -1, -1, 1)],
+    [(-1, -1, -1, -1), (-1, 1, 1, -1), (-1, 1, -1, -1), (-1, -1, 1, -1)],
+    [(-1, 1, 1, 1), (-1, 1, 1, -1), (-1, 1, -1, 1), (-1, 1, -1, -1)],
+    [(-1, 1, 1, 1), (-1, -1, 1, 1), (-1, 1, 1, -1), (-1, -1, 1, -1)],
+    [(-1, 1, 1, 1), (-1, -1, 1, 1), (-1, 1, -1, 1), (-1, -1, -1, 1)],
+    [(-8, -1, -1, -1), (-8, -1, 1, 1), (-8, -1, -1, 1), (-8, -1, 1, -1),
+     (-8, 1, 1, 1), (-8, 1, 1, -1), (-8, 1, -1, 1), (-8, 1, -1, -1)]
+]
+
+# The family of sets \{(O_k \cap 15B_1^3)\setminus int(K_i) | i in [3] \} and \{ (O_k \cap 13B_1^3) \setminus int(-Ki) | i in [3] \}, for k in [8]. 
+union_polyhedra = compute_union_polyhedron(H_lists, quadrants)
+
+# The closure $U_k$ of (15B_1^3 \setminus ((\bigcup\limits_{i\in[3]} K_i ) \cup \bigcup\limits_{i\in[3]} (-K_i)) cap O_k, for k in [8].
+if union_polyhedra is not None:
+    U = []
+    for q_index, quadrant_unions in enumerate(union_polyhedra):
+        Ui = quadrant_unions[0]
+        for h_index in range(1, len(quadrant_unions)):
+            Ui = Ui.intersection(quadrant_unions[h_index])
+        U.append(Ui)
+
+    # Print the vertices of U1 to U8
+    for idx, Ui in enumerate(U, start=1):
+        print(f"Vertices of U{idx} (intersection of union_polyhedra):", Ui.vertices_list())
+else:
+    print("Computation terminated due to no subset relationship among polyhedra.")
